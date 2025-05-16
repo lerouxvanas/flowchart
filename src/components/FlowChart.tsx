@@ -33,6 +33,12 @@ const initialNodes: FlowChartNode<CustomNodeProps>[] = [
     component: CustomNode,
     data: { label: "Step Two", size: { width: 180, height: 40 }, position: { x: 500, y: 300 } },
   },
+  {
+    id: "5",
+    type: "process",
+    component: CustomNode,
+    data: { label: "Step Two", size: { width: 180, height: 40 }, position: { x: 500, y: 500 } },
+  },
 ];
 const sampleLinks: FlowChartLink[] = [
   {
@@ -49,7 +55,7 @@ const sampleLinks: FlowChartLink[] = [
     source: "2",
     target: "3",
     type: "default",
-    style: { stroke: "#888", strokeWidth: 2 },
+    style: { stroke: "#888", strokeWidth: 2, strokeDasharray: "5, 5" },
     markerEnd: { type: "arrow" },
     data: { label: "" },
   },
@@ -59,6 +65,24 @@ const sampleLinks: FlowChartLink[] = [
     target: "4",
     type: "default",
     style: { stroke: "#888", strokeWidth: 2 },
+    markerEnd: { type: "arrow" },
+    data: { label: "" },
+  },
+  {
+    id: "l4",
+    source: "2",
+    target: "5",
+    type: "default",
+    style: { stroke: "red", strokeWidth: 1 },
+    markerEnd: { type: "arrow" },
+    data: { label: "" },
+  },
+  {
+    id: "l5",
+    source: "5",
+    target: "3",
+    type: "default",
+    style: { stroke: "#888", strokeWidth: 1 },
     markerEnd: { type: "arrow" },
     data: { label: "" },
   },

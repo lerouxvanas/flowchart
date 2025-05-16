@@ -11,10 +11,10 @@ const NodeContainer = styled.div<{
   color?: string;
 }>`
   background: #444;
-  border: 2px solid ${(props) => props.color || "#333"};
-  border-radius: 2px;
+  border: 1px solid ${(props) => props.color || "#333"};
+  border-radius: 5px;
   padding: 12px 20px;
-  min-width: 50px;
+  min-width: 80px;
   max-height: 40px;
   box-sizing: border-box;
   overflow: hidden;

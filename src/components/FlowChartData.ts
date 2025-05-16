@@ -1,4 +1,3 @@
-
 export interface FlowChartData {
     nodes: FlowChartNode[];
     links: FlowChartLink[];

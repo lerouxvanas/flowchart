@@ -66,6 +66,90 @@ export class FlowChartManager<T = unknown> {
     data.links.forEach(link => this.links.set(link.id, link));
   }
 
+  // --- Attach Point Helpers ---
+  private static getNodeCenter(pos: { x: number; y: number }, size: { width: number; height: number }) {
+    return { x: pos.x + size.width / 2, y: pos.y + size.height / 2 };
+  }
+
+  private static getAttachPoint(
+    nodePos: { x: number; y: number },
+    nodeSize: { width: number; height: number },
+    targetPos: { x: number; y: number },
+    targetSize: { width: number; height: number }
+  ) {
+    const { x: cx, y: cy } = FlowChartManager.getNodeCenter(nodePos, nodeSize);
+    const { x: tx, y: ty } = FlowChartManager.getNodeCenter(targetPos, targetSize);
+    const dx = tx - cx;
+    const dy = ty - cy;
+    let direction: 'left' | 'right' | 'top' | 'bottom';
+    if (Math.abs(dx) > Math.abs(dy)) {
+      direction = dx > 0 ? 'right' : 'left';
+    } else {
+      direction = dy > 0 ? 'bottom' : 'top';
+    }
+    switch (direction) {
+      case 'left': return { x: nodePos.x, y: cy, direction };
+      case 'right': return { x: nodePos.x + nodeSize.width, y: cy, direction };
+      case 'top': return { x: cx, y: nodePos.y, direction };
+      case 'bottom': return { x: cx, y: nodePos.y + nodeSize.height, direction };
+    }
+  }
+
+  // --- Bezier Path Helpers ---
+  private static getControlPoints(
+    x1: number, y1: number, dir1: string,
+    x2: number, y2: number, dir2: string,
+    offset = 40
+  ) {
+    let c1x = x1, c1y = y1, c2x = x2, c2y = y2;
+    switch (dir1) {
+      case 'right': c1x += offset; break;
+      case 'left': c1x -= offset; break;
+      case 'top': c1y -= offset; break;
+      case 'bottom': c1y += offset; break;
+    }
+    switch (dir2) {
+      case 'right': c2x += offset; break;
+      case 'left': c2x -= offset; break;
+      case 'top': c2y -= offset; break;
+      case 'bottom': c2y += offset; break;
+    }
+    return { c1x, c1y, c2x, c2y };
+  }
+
+  private static getBezierPoint(t: number, p0: number, p1: number, p2: number, p3: number) {
+    const mt = 1 - t;
+    return mt * mt * mt * p0 + 3 * mt * mt * t * p1 + 3 * mt * t * t * p2 + t * t * t * p3;
+  }
+
+  private static getBezierPath(
+    x1: number, y1: number, dir1: string,
+    x2: number, y2: number, dir2: string
+  ) {
+    const { c1x, c1y, c2x, c2y } = FlowChartManager.getControlPoints(x1, y1, dir1, x2, y2, dir2);
+    const t = 0.94;
+    const P94x = FlowChartManager.getBezierPoint(t, x1, c1x, c2x, x2);
+    const P94y = FlowChartManager.getBezierPoint(t, y1, c1y, c2y, y2);
+    return `M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${P94x},${P94y} L${x2},${y2}`;
+  }
+
+  // --- Marker Helper ---
+  private static renderArrowMarker(markerId: string, color: string) {
+    return (
+      <marker
+        id={markerId}
+        markerWidth="6"
+        markerHeight="4"
+        refX="6"
+        refY="2"
+        orient="auto"
+        markerUnits="strokeWidth"
+      >
+        <polygon points="0 0, 6 2, 0 4" fill={color} stroke="none" />
+      </marker>
+    );
+  }
+
   /**
    * Draws the flowchart as a React element.
    * @param nodeRenderer - Function to render a node given its data
@@ -78,78 +162,13 @@ export class FlowChartManager<T = unknown> {
   ): React.ReactElement {
     const nodes = this.getNodes();
     const links = this.getLinks();
-  
-    // 🧠 Corrected edge-based attach point calculation
-    function getAttachPoint(
-      nodePos: { x: number; y: number },
-      nodeSize: { width: number; height: number },
-      targetPos: { x: number; y: number },
-      targetSize: { width: number; height: number }
-    ) {
-      const cx = nodePos.x + nodeSize.width / 2;
-      const cy = nodePos.y + nodeSize.height / 2;
-      const tx = targetPos.x + targetSize.width / 2;
-      const ty = targetPos.y + targetSize.height / 2;
-  
-      const dx = tx - cx;
-      const dy = ty - cy;
-  
-      let direction: 'left' | 'right' | 'top' | 'bottom';
-      if (Math.abs(dx) > Math.abs(dy)) {
-        direction = dx > 0 ? 'right' : 'left';
-      } else {
-        direction = dy > 0 ? 'bottom' : 'top';
-      }
-  
-      switch (direction) {
-        case 'left':
-          return { x: nodePos.x, y: cy, direction };
-        case 'right':
-          return { x: nodePos.x + nodeSize.width, y: cy, direction };
-        case 'top':
-          return { x: cx, y: nodePos.y, direction };
-        case 'bottom':
-          return { x: cx, y: nodePos.y + nodeSize.height, direction };
-      }
-    }
-  
-    // 🎯 Curved cubic bezier path with direction-based control points
-    function getCubicPathWithDirs(
-      x1: number,
-      y1: number,
-      dir1: string,
-      x2: number,
-      y2: number,
-      dir2: string
-    ): string {
-      const offset = 40;
-      let c1x = x1, c1y = y1, c2x = x2, c2y = y2;
-  
-      switch (dir1) {
-        case 'right': c1x += offset; break;
-        case 'left': c1x -= offset; break;
-        case 'top': c1y -= offset; break;
-        case 'bottom': c1y += offset; break;
-      }
-  
-      switch (dir2) {
-        case 'right': c2x += offset; break;
-        case 'left': c2x -= offset; break;
-        case 'top': c2y -= offset; break;
-        case 'bottom': c2y += offset; break;
-      }
-  
-      return `M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${x2},${y2}`;
-    }
-  
-    const [hoveredLinkId, setHoveredLinkId] = (typeof window !== 'undefined')
+    const [hoveredLinkId] = (typeof window !== 'undefined')
       ? (window as any).flowchartLinkHoverState || [null, () => {}]
       : [null, () => {}];
-  
+
     return (
       <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, zIndex: 0, pointerEvents: 'none' }}>
         <defs>
-          
           <linearGradient id="flow-gradient" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor="#2196f3">
               <animate attributeName="stop-color" values="#2196f3;#21cbf3;#2196f3" dur="2s" repeatCount="indefinite" />
@@ -159,68 +178,59 @@ export class FlowChartManager<T = unknown> {
             </stop>
           </linearGradient>
         </defs>
-  
         {links.map(link => {
           const source = this.nodes.get(link.source);
           const target = this.nodes.get(link.target);
           if (!source || !target) return null;
-  
           const sourcePos = source.data.position || { x: 0, y: 0 };
           const targetPos = target.data.position || { x: 0, y: 0 };
           const sourceSize = source.data.size;
           const targetSize = target.data.size;
-  
-          const sourceAttach = getAttachPoint(sourcePos, sourceSize, targetPos, targetSize);
-          const targetAttach = getAttachPoint(targetPos, targetSize, sourcePos, sourceSize);
-  
-          const path = getCubicPathWithDirs(
-            sourceAttach.x,
-            sourceAttach.y,
-            sourceAttach.direction,
-            targetAttach.x,
-            targetAttach.y,
-            targetAttach.direction
+          const sourceAttach = FlowChartManager.getAttachPoint(sourcePos, sourceSize, targetPos, targetSize);
+          const targetAttach = FlowChartManager.getAttachPoint(targetPos, targetSize, sourcePos, sourceSize);
+          const path = FlowChartManager.getBezierPath(
+            sourceAttach.x, sourceAttach.y, sourceAttach.direction,
+            targetAttach.x, targetAttach.y, targetAttach.direction
           );
-  
           let stroke = link.style?.stroke || '#888';
           if (link.type === 'highlighted') stroke = '#2196f3';
           if (link.type === 'dashed') stroke = '#aaa';
-  
           const isHovered = hoveredLinkId === link.id;
           const animatedStroke = isHovered ? 'url(#flow-gradient)' : stroke;
-          const markerEnd = link.markerEnd?.type === 'arrow' ? 'url(#arrowhead)' : undefined;
-  
+          const markerId = `arrowhead-${link.id}`;
+          const markerEnd = link.markerEnd?.type === 'arrow' ? `url(#${markerId})` : undefined;
           return (
-            <path
-              key={link.id}
-              d={path}
-              stroke={animatedStroke}
-              strokeWidth={link.style?.strokeWidth || 2}
-              fill="none"
-              markerEnd={markerEnd}
-              style={{
-                ...lineStyle,
-                ...link.style,
-                filter: isHovered ? 'drop-shadow(0 0 6px #2196f3)' : undefined,
-                transition: 'filter 0.2s',
-                pointerEvents: 'stroke',
-                cursor: 'pointer',
-              }}
-              strokeDasharray={link.type === 'dashed' ? '8 4' : undefined}
-              onMouseEnter={() => {
-                if (typeof window !== 'undefined') {
-                  (window as any).flowchartLinkHoverState?.[1](link.id);
-                }
-              }}
-              onMouseLeave={() => {
-                if (typeof window !== 'undefined') {
-                  (window as any).flowchartLinkHoverState?.[1](null);
-                }
-              }}
-            />
+            <g key={link.id}>
+              {link.markerEnd?.type === 'arrow' && FlowChartManager.renderArrowMarker(markerId, stroke)}
+              <path
+                d={path}
+                stroke={animatedStroke}
+                strokeWidth={link.style?.strokeWidth || 2}
+                fill="none"
+                markerEnd={markerEnd}
+                style={{
+                  ...lineStyle,
+                  ...link.style,
+                  filter: isHovered ? 'drop-shadow(0 0 6px #2196f3)' : undefined,
+                  transition: 'filter 0.2s',
+                  pointerEvents: 'stroke',
+                  cursor: 'pointer',
+                }}
+                strokeDasharray={link.type === 'dashed' ? '8 4' : undefined}
+                onMouseEnter={() => {
+                  if (typeof window !== 'undefined') {
+                    (window as any).flowchartLinkHoverState?.[1](link.id);
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (typeof window !== 'undefined') {
+                    (window as any).flowchartLinkHoverState?.[1](null);
+                  }
+                }}
+              />
+            </g>
           );
         })}
-  
         {nodes.map(node => {
           const pos = node.data.position || { x: 0, y: 0 };
           const size = node.data.size;
@@ -237,7 +247,6 @@ export class FlowChartManager<T = unknown> {
             </foreignObject>
           );
         })}
-
         {/* Render edge circles for each node */}
         {nodes.map(node => {
           const pos = node.data.position || { x: 0, y: 0 };
