@@ -1,45 +1,14 @@
-import React, { useState, useCallback } from "react";
+import React, { useCallback } from "react";
 import styled from "styled-components";
 import { FlowChartManager } from "./FlowChartManager";
 import type { FlowChartNode, FlowChartLink } from "./FlowChartData";
 import CustomNode, { type CustomNodeProps } from "./CustomNode";
+import { FlowChartProvider, useFlowChartContext } from "./FlowChartContext";
 
 const ChartContainer = styled.div`
   
 `;
 
-const initialNodes: FlowChartNode<CustomNodeProps>[] = [
-  {
-    id: "1",
-    type: "input",
-    component: CustomNode,
-    data: { label: "Start", size: { width: 180, height: 40 }, position: { x: 100, y: 100 } },
-  },
-  {
-    id: "2",
-    type: "process",
-    component: CustomNode,
-    data: { label: "Process", size: { width: 180, height: 40 }, position: { x: 300, y: 100 } },
-  },
-  {
-    id: "3",
-    type: "output",
-    component: CustomNode,
-    data: { label: "End", size: { width: 180, height: 40 }, position: { x: 500, y: 100 } },
-  },
-  {
-    id: "4",
-    type: "process",
-    component: CustomNode,
-    data: { label: "Step Two", size: { width: 180, height: 40 }, position: { x: 500, y: 300 } },
-  },
-  {
-    id: "5",
-    type: "process",
-    component: CustomNode,
-    data: { label: "Step Two", size: { width: 180, height: 40 }, position: { x: 500, y: 500 } },
-  },
-];
 const sampleLinks: FlowChartLink[] = [
   {
     id: "l1",
@@ -73,7 +42,7 @@ const sampleLinks: FlowChartLink[] = [
     source: "2",
     target: "5",
     type: "default",
-    style: { stroke: "red", strokeWidth: 1 },
+    style: { stroke: "red", strokeWidth: 2 },
     markerEnd: { type: "arrow" },
     data: { label: "" },
   },
@@ -82,7 +51,7 @@ const sampleLinks: FlowChartLink[] = [
     source: "5",
     target: "3",
     type: "default",
-    style: { stroke: "#888", strokeWidth: 1 },
+    style: { stroke: "#888", strokeWidth: 2 },
     markerEnd: { type: "arrow" },
     data: { label: "" },
   },
@@ -93,9 +62,7 @@ interface FlowChartProps {
 }
 
 const FlowChart: React.FC<FlowChartProps> = ({ lineStyle }) => {
-  // Node positions in state for drag
-  const [nodes, setNodes] = useState<FlowChartNode[]>(initialNodes);
-  const [dragging, setDragging] = useState<null | { id: string; offsetX: number; offsetY: number }>();
+  const { nodes, setNodes, dragging, setDragging } = useFlowChartContext();
 
   // Update manager with current node positions
   const manager = React.useMemo(() => {
@@ -138,12 +105,12 @@ const FlowChart: React.FC<FlowChartProps> = ({ lineStyle }) => {
         );
       }
     },
-    [dragging]
+    [dragging, setNodes]
   );
 
   const handleMouseUp = useCallback(() => {
     setDragging(null);
-  }, []);
+  }, [setDragging]);
 
   // Attach global mousemove/mouseup listeners when dragging
   React.useEffect(() => {
@@ -173,4 +140,11 @@ const FlowChart: React.FC<FlowChartProps> = ({ lineStyle }) => {
   );
 };
 
-export default FlowChart;
+// Export wrapped with provider for easy usage
+const FlowChartWithProvider: React.FC<FlowChartProps> = (props) => (
+  <FlowChartProvider>
+    <FlowChart {...props} />
+  </FlowChartProvider>
+);
+
+export default FlowChartWithProvider;
