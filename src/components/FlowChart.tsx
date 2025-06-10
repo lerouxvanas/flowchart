@@ -51,8 +51,8 @@ const sampleLinks: FlowChartLink[] = [
     source: "5",
     target: "3",
     type: "default",
-    style: { stroke: "#888", strokeWidth: 2 },
-    markerEnd: { type: "arrow" },
+    style: { stroke: "blue", strokeWidth: 2 },
+    markerEnd: { type: "circle" },
     data: { label: "" },
   },
 ];
